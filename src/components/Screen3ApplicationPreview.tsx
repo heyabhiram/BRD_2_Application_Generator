@@ -13,12 +13,20 @@ import {
   ShieldCheck,
   Loader2,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  Sparkles
 } from "lucide-react";
 
 interface Screen3ApplicationPreviewProps {
   projectId: string;
   onBackToArchitecture: () => void;
+}
+
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  text: string;
+  time: string;
 }
 
 export const Screen3ApplicationPreview: React.FC<Screen3ApplicationPreviewProps> = ({
@@ -32,14 +40,30 @@ export const Screen3ApplicationPreview: React.FC<Screen3ApplicationPreviewProps>
   const [iframeKey, setIframeKey] = useState<number>(0);
   const [chatInstruction, setChatInstruction] = useState<string>("");
   const [isModifying, setIsModifying] = useState<boolean>(false);
-  const [modifyFeedback, setModifyFeedback] = useState<string | null>(null);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState<boolean>(true);
+  
+  // In-memory conversational list for the modifier panel
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      id: "welcome",
+      role: "assistant",
+      text: "Application is active. You can request feature additions, component changes, data adjustments, or theme customizations (e.g. 'switch to light theme', 'make background navy blue', 'add priority filter').",
+      time: "Ready",
+    },
+  ]);
+
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll terminal logs
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
+
+  // Auto-scroll modifier chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, isModifying]);
 
   // Connect to SSE stream or poll generation status
   useEffect(() => {
@@ -93,10 +117,18 @@ export const Screen3ApplicationPreview: React.FC<Screen3ApplicationPreviewProps>
     e.preventDefault();
     if (!chatInstruction.trim() || isModifying) return;
 
-    setIsModifying(true);
-    setModifyFeedback(null);
     const instruction = chatInstruction.trim();
     setChatInstruction("");
+    setIsModifying(true);
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: "user",
+      text: instruction,
+      time: timeStr,
+    };
+    setChatMessages((prev) => [...prev, userMsg]);
 
     try {
       const res = await fetch("http://localhost:8000/api/modify", {
@@ -114,14 +146,26 @@ export const Screen3ApplicationPreview: React.FC<Screen3ApplicationPreviewProps>
       }
 
       const result = await res.json();
-      setModifyFeedback(result.message || "Modification applied. Preview updated.");
-      
-      // Delay refresh slightly for Next.js hot-reload to bundle
+      const replyMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        text: result.message || "Modifications applied successfully and verified.",
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      setChatMessages((prev) => [...prev, replyMsg]);
+
+      // Delay refresh slightly for Next.js hot-reload to catch up
       setTimeout(() => {
         handleRefreshPreview();
-      }, 1500);
+      }, 1000);
     } catch (err: any) {
-      setModifyFeedback(`Error: ${err.message || "Failed to update"}`);
+      const errorMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        text: `Error: ${err.message || "Failed to apply modification"}`,
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+      setChatMessages((prev) => [...prev, errorMsg]);
     } finally {
       setIsModifying(false);
     }
@@ -131,7 +175,7 @@ export const Screen3ApplicationPreview: React.FC<Screen3ApplicationPreviewProps>
     { id: "planning", label: "Planner Agent", icon: Layers, desc: "Project scaffolding & task division" },
     { id: "backend", label: "Backend Agent", icon: Database, desc: "SQLite schema, queries & API routes" },
     { id: "frontend", label: "Frontend Agent", icon: Code2, desc: "Next.js pages & Tailwind UI components" },
-    { id: "qa", label: "Integration / QA Agent", icon: ShieldCheck, desc: "Verification & subprocess boot" },
+    { id: "qa", label: "Integration / QA Agent", icon: ShieldCheck, desc: "Build verification & self-healing" },
   ];
 
   const getStepStatus = (stepId: string) => {
@@ -310,7 +354,7 @@ export const Screen3ApplicationPreview: React.FC<Screen3ApplicationPreviewProps>
           )}
         </div>
 
-        {/* Right-Side Chat Panel for Iterative Modifications */}
+        {/* Right-Side Chat Panel for Iterative Modifications & Theme Updates */}
         {isChatPanelOpen && (
           <div className="w-80 sm:w-96 border-l border-zinc-800 bg-zinc-900/70 flex flex-col shrink-0">
             <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
@@ -319,32 +363,45 @@ export const Screen3ApplicationPreview: React.FC<Screen3ApplicationPreviewProps>
                   Application Modifier
                 </h4>
                 <p className="text-[11px] text-zinc-400 mt-0.5">
-                  Request changes to the generated project
+                  Features, Theme Customization & Updates
                 </p>
               </div>
             </div>
 
-            {/* Change History / Information */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-              <div className="bg-zinc-800/40 border border-zinc-800 rounded-lg p-3 text-zinc-400">
-                <span className="font-semibold text-zinc-300 block mb-1">
-                  Iterative Refinement
-                </span>
-                Edits submitted here are written directly to your generated Next.js project. Hot reloading updates the running preview automatically.
-              </div>
-
-              {modifyFeedback && (
-                <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-3 text-zinc-200">
-                  {modifyFeedback}
+            {/* Chat Messages List */}
+            <div className="flex-1 p-3 overflow-y-auto space-y-3">
+              {chatMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${
+                    msg.role === "user" ? "items-end" : "items-start"
+                  }`}
+                >
+                  <div
+                    className={`px-3 py-2 rounded-xl text-xs max-w-[90%] leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-zinc-800 text-zinc-100 border border-zinc-700 rounded-tr-none shadow-sm"
+                        : "bg-zinc-900/90 text-zinc-200 border border-zinc-800 rounded-tl-none shadow-sm"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                  <span className="text-[10px] text-zinc-500 mt-1 px-1">
+                    {msg.role === "user" ? "You" : "Modifier Agent"} · {msg.time}
+                  </span>
                 </div>
-              )}
+              ))}
 
               {isModifying && (
-                <div className="flex items-center space-x-2 text-zinc-400 p-2">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Applying code modifications...</span>
+                <div className="flex flex-col items-start">
+                  <div className="bg-zinc-900/90 border border-zinc-800 rounded-xl rounded-tl-none px-3 py-2 text-xs text-zinc-400 flex items-center space-x-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-300" />
+                    <span>Applying changes & verifying build...</span>
+                  </div>
                 </div>
               )}
+
+              <div ref={chatEndRef} />
             </div>
 
             {/* Modification Input Form */}
@@ -358,7 +415,7 @@ export const Screen3ApplicationPreview: React.FC<Screen3ApplicationPreviewProps>
                   placeholder={
                     status !== "ready"
                       ? "Available once application is ready..."
-                      : "Describe requested change..."
+                      : "Request feature, theme change, or fix..."
                   }
                   className="flex-1 bg-transparent text-xs text-zinc-100 placeholder-zinc-500 outline-none py-1.5"
                 />
@@ -385,4 +442,3 @@ export const Screen3ApplicationPreview: React.FC<Screen3ApplicationPreviewProps>
     </div>
   );
 };
-

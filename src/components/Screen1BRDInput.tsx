@@ -7,21 +7,25 @@ interface Screen1BRDInputProps {
 }
 
 const SAMPLE_BRD = `# Business Requirement Document (BRD)
-## Project: TaskFlow - Internal Task & Milestone Tracker
+## Project: Minimal To-Do Application
 
 ### 1. Executive Summary
-TaskFlow is a centralized project and milestone management tool for agile software engineering teams. It allows managers and developers to track sprints, manage task statuses, assign priorities, and visualize progress.
+TodoLite is a simple and minimal task management application designed to help users manage their daily tasks efficiently. Users can create new tasks, view their task list, and delete tasks when they are no longer needed.
 
 ### 2. Core Functional Requirements
-- **Task Management**: Create, update, view, and delete tasks. Each task has: Title, Description, Status (To Do, In Progress, Under Review, Completed), Priority (Low, Medium, High, Critical), Assignee Name, and Due Date.
-- **Milestone & Sprint Tracking**: Group tasks under milestones with progress percentage calculation.
-- **Dashboard & Metrics**: Overview showing count of tasks by status, high-priority alerts, and upcoming deadlines.
-- **Activity & Filtering**: Quick filter by status and priority, text search across titles, and status toggle.
+- Task Management: Create, view, and delete tasks. Each task has:
+"""
+Task Title
+Description (Optional)
+Created Date
+"""
+- Task List: Display all created tasks in a clean and organized list.
+- Create Task: Provide a simple input field and an add button to create new tasks.
+- Delete Task: Allow users to delete tasks from the task list.
+- Empty State: Display a simple message when no tasks are available.
 
 ### 3. Non-Functional Requirements
-- Fast and responsive dark theme UI.
-- Local SQLite database persistence for tasks and milestones.
-- RESTful API endpoints for all CRUD operations.
+- Minimal and clean light theme UI.
 `;
 
 export const Screen1BRDInput: React.FC<Screen1BRDInputProps> = ({
